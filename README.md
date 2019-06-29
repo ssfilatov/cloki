@@ -1,0 +1,1 @@
+# clickhouse-loki-adapter
