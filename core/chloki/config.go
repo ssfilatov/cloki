@@ -15,6 +15,7 @@ type ClickhouseConfig struct {
 	Login          string
 	Password       string
 	Database       string
+	LogTableName   string
 	MaxConnections int
 }
 

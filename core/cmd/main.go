@@ -78,7 +78,6 @@ func reopenLog() {
 	log.SetOutput(logFd)
 }
 
-
 func Main() {
 	if argv.version {
 		fmt.Fprint(os.Stderr, buildVersion, "\n")
@@ -118,4 +117,3 @@ func Main() {
 		log.Fatalf("Could not run fluentbit proxy: %s", err.Error())
 	}
 }
-

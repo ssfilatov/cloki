@@ -8,12 +8,8 @@ import (
 )
 
 var (
-	config             *Config
+	config *Config
 )
-
-func defaultHandler(ctx *fasthttp.RequestCtx) {
-	ctx.Error("Not implemented", fasthttp.StatusNotImplemented)
-}
 
 func Run(configFileName string) error {
 
@@ -35,7 +31,7 @@ func Run(configFileName string) error {
 		MaxIdleConnDuration: time.Second,
 	}
 
-	if config.UseTls {
+	if config.UseTLS {
 		return srv.ListenAndServeTLS(config.ListenAddr, config.CertFile, config.KeyFile)
 	} else {
 		return srv.ListenAndServe(config.ListenAddr)
