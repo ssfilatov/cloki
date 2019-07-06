@@ -1,1 +1,1 @@
-# clickhouse-loki-adapter
+# Loki interface for clickhouse

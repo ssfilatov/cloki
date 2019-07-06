@@ -1,10 +1,12 @@
 package clickhouse
 
 import (
-	"database/sql"
 	"fmt"
-	_ "github.com/mailru/go-clickhouse"
-	"github.com/ssfilatov/clickhouse-loki-adapter/core/chloki"
+	cloki "github.com/ssfilatov/cloki/core"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strings"
 )
 
 type LogEntry struct {
@@ -17,54 +19,58 @@ type LogEntry struct {
 	Message    string
 }
 
-func NewClickhouse(config *chloki.Config) (*Clickhouse, error) {
-	connectionString := fmt.Sprintf("http://%s/%s", config.Clickhouse.Server, config.Clickhouse.Database)
-	connect, err := sql.Open("clickhouse", connectionString)
-	if err != nil {
-		return nil, fmt.Errorf("error connecting to clickhouse: %s", err)
-	}
+func NewClickhouse(config *cloki.Config) (*Clickhouse, error) {
+
 	ch := &Clickhouse{
-		connect,
+		fmt.Sprintf("%s/?user=%s&password=%s&database=%s&query=",
+			config.Clickhouse.URL,
+			config.Clickhouse.User,
+			url.QueryEscape(config.Clickhouse.Password),
+			config.Clickhouse.Database),
 		config.Clickhouse.LogTableName,
+	}
+	err := ch.Ping()
+	if err != nil {
+		return nil, fmt.Errorf("error trying to connect to clickhouse: %s", err)
 	}
 	return ch, nil
 }
 
 type Clickhouse struct {
-	conn  *sql.DB
-	table string
+	uriString string
+	table     string
 }
 
-func (c *Clickhouse) GetLogEntries(start, end string) ([]*LogEntry, error) {
-	rows, err := c.conn.Query(`
-		SELECT 
-			timestamp,
-			project_id,
-			instance_id,
-			msec,
-			tag,
-		    level,
-			message
-		FROM
-			%s`)
+func (ch *Clickhouse) Ping() error {
+	_, err := http.Get(ch.uriString + url.PathEscape("SELECT 1"))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ch *Clickhouse) GetColumnValues(name string, limit uint32) ([]string, error) {
+	query := url.PathEscape(fmt.Sprintf("SELECT DISTINCT %s FROM %s LIMIT %d", name, ch.table, limit))
+	resp, err := http.Get(ch.uriString + query)
 	if err != nil {
 		return nil, err
 	}
-	var logEntries []*LogEntry
-	for rows.Next() {
-		var entry LogEntry
-		if err := rows.Scan(
-			&entry.Timestamp,
-			&entry.ProjectID,
-			&entry.InstanceID,
-			&entry.Msec,
-			&entry.Tag,
-			&entry.Level,
-			&entry.Message,
-		); err != nil {
-			return nil, err
-		}
-		logEntries = append(logEntries, &entry)
+	byteResp, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
 	}
-	return logEntries, nil
+	return strings.Split(string(byteResp), "\n"), nil
 }
+
+//func (ch *Clickhouse) GetLogEntries(name string, limit uint32) ([]string, error) {
+//	query := url.PathEscape(fmt.Sprintf("SELECT message FROM %s LIMIT %d", ch.table, limit))
+//	resp, err :=  http.Get(ch.uriString + query)
+//	if err != nil {
+//		return nil, err
+//	}
+//	byteResp, err := ioutil.ReadAll(resp.Body)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return strings.Split(string(byteResp), "\n"), nil
+//}

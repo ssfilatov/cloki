@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ssfilatov/clickhouse-loki-adapter/core/cmd"
+	"github.com/ssfilatov/cloki/core/cmd"
 )
 
 func main() {
