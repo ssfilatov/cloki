@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"github.com/ssfilatov/cloki/core/utils"
 	"github.com/ssfilatov/cloki/lokiproto"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -18,16 +18,13 @@ const (
 	defaulSince       = 1 * time.Hour
 )
 
-const Forward = "forward"
-const Backward = "backward"
-const DefaultDirection = Backward
-
 func (q *Querier) QueryHandler(w http.ResponseWriter, r *http.Request) {
 	request, err := httpRequestToQueryRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	log.Debugf("request: %v", request)
 
 	result, err := q.Query(r.Context(), request)
 	if err != nil {
@@ -39,32 +36,6 @@ func (q *Querier) QueryHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
-
-func intParam(values url.Values, name string, def int) (int, error) {
-	value := values.Get(name)
-	if value == "" {
-		return def, nil
-	}
-
-	return strconv.Atoi(value)
-}
-
-func unixNanoTimeParam(values url.Values, name string, def time.Time) (time.Time, error) {
-	value := values.Get(name)
-	if value == "" {
-		return def, nil
-	}
-
-	nanos, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		if ts, err := time.Parse(time.RFC3339Nano, value); err == nil {
-			return ts, nil
-		}
-		return time.Time{}, err
-	}
-
-	return time.Unix(0, nanos), nil
 }
 
 // nolint
@@ -89,18 +60,18 @@ func httpRequestToQueryRequest(httpRequest *http.Request) (*lokiproto.QueryReque
 		Query: params.Get("query"),
 	}
 
-	limit, err := intParam(params, "limit", defaultQueryLimit)
+	limit, err := utils.IntParam(params, "limit", defaultQueryLimit)
 	if err != nil {
 		return nil, err
 	}
 	queryRequest.Limit = uint32(limit)
 
-	queryRequest.Start, err = unixNanoTimeParam(params, "start", now.Add(-defaulSince))
+	queryRequest.Start, err = utils.UnixNanoTimeParam(params, "start", now.Add(-defaulSince))
 	if err != nil {
 		return nil, err
 	}
 
-	queryRequest.End, err = unixNanoTimeParam(params, "end", now)
+	queryRequest.End, err = utils.UnixNanoTimeParam(params, "end", now)
 	if err != nil {
 		return nil, err
 	}
